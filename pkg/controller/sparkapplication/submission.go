@@ -18,6 +18,7 @@ package sparkapplication
 
 import (
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -163,6 +164,53 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 	}
 	for _, option := range options {
 		args = append(args, "--conf", option)
+	}
+
+	if app.Spec.Volumes != nil {
+		var sparkLocalVolumes map[string]v1.Volume
+		sparkLocalVolumes = make(map[string]v1.Volume)
+		var mutateVolumes []v1.Volume
+
+		for _, volume := range app.Spec.Volumes {
+			if strings.HasPrefix(volume.Name, "spark-local-dir-") {
+				sparkLocalVolumes[volume.Name] = volume
+			} else {
+				mutateVolumes = append(mutateVolumes, volume)
+			}
+		}
+		app.Spec.Volumes = mutateVolumes
+
+		if app.Spec.Driver.VolumeMounts != nil {
+			VolumeMountPathTemplate := "spark.kubernetes.driver.volumes.%s.%s.mount.path=%s"
+			VolumeMountOptionPathTemplate := "spark.kubernetes.driver.volumes.%s.%s.options.path=%s"
+			var mutateMountVolumes []v1.VolumeMount
+			for _, volumeMount := range  app.Spec.Driver.VolumeMounts {
+				if volume, ok := sparkLocalVolumes[volumeMount.Name]; ok {
+					args = append(args, "--conf", fmt.Sprintf(VolumeMountPathTemplate, "hostPath", volume.Name, volumeMount.MountPath))
+					args = append(args, "--conf", fmt.Sprintf(VolumeMountOptionPathTemplate, "hostPath", volume.Name, volumeMount.MountPath))
+				} else {
+					mutateMountVolumes = append(mutateMountVolumes, volumeMount)
+				}
+			}
+
+			app.Spec.Driver.VolumeMounts = mutateMountVolumes
+		}
+
+		if app.Spec.Executor.VolumeMounts != nil {
+			VolumeMountPathTemplate := "spark.kubernetes.executor.volumes.%s.%s.mount.path=%s"
+			VolumeMountOptionPathTemplate := "spark.kubernetes.executor.volumes.%s.%s.options.path=%s"
+			var mutateMountVolumes []v1.VolumeMount
+			for _, volumeMount := range  app.Spec.Executor.VolumeMounts {
+				if volume, ok := sparkLocalVolumes[volumeMount.Name]; ok {
+					args = append(args, "--conf", fmt.Sprintf(VolumeMountPathTemplate, "hostPath", volume.Name, volumeMount.MountPath))
+					args = append(args, "--conf", fmt.Sprintf(VolumeMountOptionPathTemplate, "hostPath", volume.Name, volumeMount.MountPath))
+				} else {
+					mutateMountVolumes = append(mutateMountVolumes, volumeMount)
+				}
+			}
+
+			app.Spec.Driver.VolumeMounts = mutateMountVolumes
+		}
 	}
 
 	if app.Spec.MainApplicationFile != nil {

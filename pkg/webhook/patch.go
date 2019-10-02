@@ -48,7 +48,10 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	if util.IsDriverPod(pod) {
 		patchOps = append(patchOps, addOwnerReference(pod, app))
 	}
+
+	glog.V(2).Infof("--------------patch operators start-----------------")
 	patchOps = append(patchOps, addVolumes(pod, app)...)
+	glog.V(2).Infof("--------------patch operators end-----------------")
 	patchOps = append(patchOps, addGeneralConfigMaps(pod, app)...)
 	patchOps = append(patchOps, addSparkConfigMap(pod, app)...)
 	patchOps = append(patchOps, addHadoopConfigMap(pod, app)...)
@@ -100,6 +103,8 @@ func addOwnerReference(pod *corev1.Pod, app *v1beta2.SparkApplication) patchOper
 
 func addVolumes(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
 	volumes := app.Spec.Volumes
+	glog.V(2).Infof("In total %d", len(volumes))
+
 	volumeMap := make(map[string]corev1.Volume)
 	for _, v := range volumes {
 		volumeMap[v.Name] = v
@@ -114,6 +119,10 @@ func addVolumes(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation
 
 	var ops []patchOperation
 	for _, m := range volumeMounts {
+		if strings.HasPrefix(m.Name, "spark-local-dir-") {
+			continue
+		}
+
 		if v, ok := volumeMap[m.Name]; ok {
 			ops = append(ops, addVolume(pod, v))
 			ops = append(ops, addVolumeMount(pod, m))
