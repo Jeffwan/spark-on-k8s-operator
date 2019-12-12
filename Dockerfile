@@ -30,7 +30,7 @@ RUN go generate && CGO_ENABLED=0 GOOS=linux go build -o /usr/bin/spark-operator
 
 FROM ${SPARK_IMAGE}
 COPY --from=builder /usr/bin/spark-operator /usr/bin/
-RUN apk add --no-cache openssl curl tini
+RUN apt update && apt install -y openssl curl tini
 COPY hack/gencerts.sh /usr/bin/
 
 COPY entrypoint.sh /usr/bin/
