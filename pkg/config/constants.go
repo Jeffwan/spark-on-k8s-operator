@@ -268,5 +268,5 @@ const (
 	// SparkDriverContainerName is name of driver container in spark driver pod
 	SparkDriverContainerName = "spark-kubernetes-driver"
 	// SparkExecutorContainerName is name of executor container in spark executor pod
-	SparkExecutorContainerName = "executor"
+	SparkExecutorContainerName = "spark-kubernetes-executor"
 )
